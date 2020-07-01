@@ -4,6 +4,11 @@
 
 [TOC]
 
+## Tips
+
+* Gitee不支持文档内跳转，Github支持
+* '[TOC]'语法，gitee和github都不支持，已知typora、csdn支持该语法
+
 ## Learning Calendar
 
 **7月**
@@ -31,5 +36,9 @@
 
 ## Day -2 <span id="-2"></span>
 
+【7:10 pm】
+
 今天还在进行其他事情的处理中……
+
+针对即将前往北京的行程，进行一些整理工作。
 
