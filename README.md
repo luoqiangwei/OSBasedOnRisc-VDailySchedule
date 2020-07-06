@@ -36,8 +36,6 @@
 
 ## Day -2 <span id="-2"></span>
 
-【7:10 pm】
-
 今天还在进行其他事情的处理中……
 
 针对即将前往北京的行程，进行一些整理工作。
@@ -62,8 +60,32 @@ Rust的学习记录将会被单独放置在一个文件夹中。
 
 
 
-## Day 1 <span id="0"></span>
+## Day 1 <span id="1"></span>
 
 今天早上完成了rust的一半练习，之后的应该会明天完成。我基本上是根据其他语言来推测rust的写法，意外的有效。
 
 代码和笔记都已经记录在Rust-Learning-Record中了。
+
+
+
+## Day 2 <span id="2"></span>
+
+暂时因为别的事情（指坐火车），搁置了一天。
+
+
+
+## Day 3 <span id="3"></span>
+
+### 今日完成：
+
+* Small exercises to get you used to reading and writing Rust code! 小练习题全通！
+
+### 遇到问题：
+
+* Rust的类型转换… 总之，都是一些因为语法不熟悉导致的问题。
+
+### 明日计划：
+
+* 彻底完成Rust的学习
+* 构建rCore的Lab0
+
