@@ -1,0 +1,1 @@
+/mnt/f/Projects/os_tutorial_summer_of_code_daily_schedule/RCore-Learning-Record/Lab_0/os/target/debug/os: /mnt/f/Projects/os_tutorial_summer_of_code_daily_schedule/RCore-Learning-Record/Lab_0/os/src/main.rs
