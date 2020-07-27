@@ -544,3 +544,207 @@ boot_stack_top:
 
 ### 使用QEMU运行
 
+编译QEMU
+
+```shell
+sudo apt install gcc gdb make  libpixman-1-dev libglib2.0-dev pkg-config
+wget https://download.qemu.org/qemu-5.0.0.tar.xz
+tar xvJf qemu-5.0.0.tar.xz
+cd qemu-5.0.0/
+./configure --target-list=riscv32-softmmu,riscv64-softmmu
+make -j2
+vim ~/.bashrc
+```
+
+然后添加类似下面这行，当然，路径需要自己进行修改。
+
+```shell
+export PATH=/home/ovea/qemu-5.0.0/riscv32-softmmu:/home/ovea/qemu-5.0.0/riscv64-softmmu:$PATH
+```
+
+然后`source ~/.bashrc`就可以使用了
+
+**使用OpenSBI**
+
+```shell
+qemu-system-riscv64 \
+  --machine virt \
+  --nographic \
+  --bios default
+```
+
+output
+
+```
+OpenSBI v0.6
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|____/_____|
+        | |
+        |_|
+
+Platform Name          : QEMU Virt Machine
+Platform HART Features : RV64ACDFIMSU
+Platform Max HARTs     : 8
+Current Hart           : 0
+Firmware Base          : 0x80000000
+Firmware Size          : 120 KB
+Runtime SBI Version    : 0.2
+
+MIDELEG : 0x0000000000000222
+MEDELEG : 0x000000000000b109
+PMP0    : 0x0000000080000000-0x000000008001ffff (A)
+PMP1    : 0x0000000000000000-0xffffffffffffffff (A,R,W,X)
+```
+
+使用 `ctrl+a`  再按下 `x` 键退出。
+
+**加载内核镜像**
+
+将main.rs文件改成下面这样
+
+```rust
+//!  - `#![no_std]`
+//! 禁用Rust标准库
+#![no_std]
+
+//!  - `#![no_main]`
+//! 不使用`main`函数等全部Rust-level入口点作为程序入口
+#![no_main]
+//! # 一些 unstable 的功能需要在 crate 层级声明后才可以使用
+//! - `#![feature(llvm_asm)]`  
+//!   内嵌汇编
+#![feature(llvm_asm)]
+//!
+//! - `#![feature(global_asm)]`
+//!   内嵌整个汇编文件
+#![feature(global_asm)]
+
+// 汇编编写的程序入口，具体见该文件
+global_asm!(include_str!("entry.asm"));
+
+use core::panic::PanicInfo;
+
+/// 当 panic 发生时会调用该函数
+/// 我们暂时将它的实现为一个死循环
+#[panic_handler]
+fn panic(_info: &PanicInfo) -> ! {
+    loop {}
+}
+
+/// 在屏幕上输出一个字符，目前我们先不用了解其实现原理
+pub fn console_putchar(ch: u8) {
+    let _ret: usize;
+    let arg0: usize = ch as usize;
+    let arg1: usize = 0;
+    let arg2: usize = 0;
+    let which: usize = 1;
+    unsafe {
+        llvm_asm!("ecall"
+             : "={x10}" (_ret)
+             : "{x10}" (arg0), "{x11}" (arg1), "{x12}" (arg2), "{x17}" (which)
+             : "memory"
+             : "volatile"
+        );
+    }
+}
+
+/// Rust 的入口函数
+///
+/// 在 `_start` 为我们进行了一系列准备之后，这是第一个被调用的 Rust 函数
+#[no_mangle]
+pub extern "C" fn rust_main() -> ! {
+    // 在屏幕上输出 "OK\n" ，随后进入死循环
+    console_putchar(b'O');
+    console_putchar(b'K');
+    console_putchar(b'\n');
+
+    loop {}
+}
+```
+
+添加了输出的方法，然后创建一个Makefile文件
+
+```makefile
+TARGET      := riscv64imac-unknown-none-elf
+MODE        := debug
+KERNEL_FILE := target/$(TARGET)/$(MODE)/os
+BIN_FILE    := target/$(TARGET)/$(MODE)/kernel.bin
+
+OBJDUMP     := rust-objdump --arch-name=riscv64
+OBJCOPY     := rust-objcopy --binary-architecture=riscv64
+
+.PHONY: doc kernel build clean qemu run
+
+# 默认 build 为输出二进制文件
+build: $(BIN_FILE) 
+
+# 通过 Rust 文件中的注释生成 os 的文档
+doc:
+    @cargo doc --document-private-items
+
+# 编译 kernel
+kernel:
+    @cargo build
+
+# 生成 kernel 的二进制文件
+$(BIN_FILE): kernel
+    @$(OBJCOPY) $(KERNEL_FILE) --strip-all -O binary $@
+
+# 查看反汇编结果
+asm:
+    @$(OBJDUMP) -d $(KERNEL_FILE) | less
+
+# 清理编译出的文件
+clean:
+    @cargo clean
+
+# 运行 QEMU
+qemu: build
+    @qemu-system-riscv64 \
+            -machine virt \
+            -nographic \
+            -bios default \
+            -device loader,file=$(BIN_FILE),addr=0x80200000
+
+# 一键运行
+run: build qemu
+```
+
+然后执行`make run`，输出结果如下
+
+```
+warning: Error finalizing incremental compilation session directory `/mnt/d/Projects/os_tutorial_summer_of_code_daily_schedule/RCore-Learning-Record/Lab_0/os/target/riscv64imac-unknown-none-elf/debug/incremental/os-2p2ojys6gu64z/s-fpgd50xh2w-csqeok-working`: Permission denied (os error 13)
+
+warning: 1 warning emitted
+
+    Finished dev [unoptimized + debuginfo] target(s) in 0.02s
+
+OpenSBI v0.6
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|____/_____|
+        | |
+        |_|
+
+Platform Name          : QEMU Virt Machine
+Platform HART Features : RV64ACDFIMSU
+Platform Max HARTs     : 8
+Current Hart           : 0
+Firmware Base          : 0x80000000
+Firmware Size          : 120 KB
+Runtime SBI Version    : 0.2
+
+MIDELEG : 0x0000000000000222
+MEDELEG : 0x000000000000b109
+PMP0    : 0x0000000080000000-0x000000008001ffff (A)
+PMP1    : 0x0000000000000000-0xffffffffffffffff (A,R,W,X)
+OK
+```
+
